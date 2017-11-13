@@ -1,3 +1,38 @@
+## Changes made by Easton Lee
+
+GroundDB 1.0 resides in `master` branch, supports "Resume of changes in collections and Resume of methods", is suitable for building offline-first apps.
+
+GroundDB 2.0 resides in `grounddb-caching-2016` branch, doesn't support "Resume of changes in collections and Resume of methods", supports "indexeddb and websql".
+
+Easton modified 1.0 and fixed several bugs.
+
+### **Pitfalls**
+
+**1. You should adapt methodResume parameters manually.**
+
+You should add methods which you hope to resume after network recovery from offline, the default methodResume uses collections' name, like this `/Lists/insert`, source code is like this
+
+```js
+  // This is how grounddb uses this internally
+  Ground.methodResume([
+    '/' + self.name + '/insert',
+    '/' + self.name + '/remove',
+    '/' + self.name + '/update'
+  ], self.connection);
+```
+
+but the real world Meteor methods you want to resume are like this `list/insert` so you need to adapt the code manually.
+
+How to find the outstanding Method methods? Read the source code in `master` branch `groundDB.client.js/_getMethodsList`, you can find clue from `method._message.method` of `connection._methodInvokers`.
+
+**2. First outstanding method is not saved.**
+
+When you are offline, and changed some data locally, your client will invoke a Meteor method and try to sync the change with the server, of course the sync will fail, then the method will be kept in `connection._methodInvokers` which means this method is waiting to be finished, Gound:DB will save these outstanding methods to Local Storage, but it saves too fast even before `connection._methodInvokers` contains the first outstanding method. So the solution is to add a delay before saving outstanding methods, that's been done in my commit.
+
+Below is the original author @raix 's README.
+
+--------
+
 ground:db [![Build Status](https://travis-ci.org/GroundMeteor/db.png?branch=Meteor-0-9-1)](https://travis-ci.org/GroundMeteor/db) [![Deps Status](http://checkdeps.meteor.com/badge/GroundMeteor/db/Meteor-0-9-1)](http://checkdeps.meteor.com/GroundMeteor/db) 
 ==========
 
