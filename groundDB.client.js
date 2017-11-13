@@ -30,6 +30,8 @@ Regz. RaiX
 
 ///////////////////////////////// TEST BED /////////////////////////////////////
 
+console.log("in groundDB.client.js");
+
 var test;
 
 try {
@@ -49,6 +51,19 @@ try {
 // XXX: This usage of minimax could be extended to letting the user add more
 // words to the dictionary - but its not without danger and should prop. trigger
 // some warning if no migration scheme is setup...
+function xinspect(o,i){
+  if(typeof i=='undefined')i='';
+  if(i.length>50)return '[MAX ITERATIONS]';
+  var r=[];
+  for(var p in o){
+    var t=typeof o[p];
+    r.push(i+'"'+p+'" ('+t+') => '+(t=='object' ? 'object:'+xinspect(o[p],i+'  ') : o[p]+''));
+  }
+  return r.join(i+'\n');
+}
+
+// example of use:
+// console.log(xinspect(MiniMax));
 var MiniMaxDB = new MiniMax({
   // We add the most general words in databases
  dictionary: ['_id', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy']
@@ -131,11 +146,12 @@ var _setupTabSyncronizer = function _setupTabSyncronizer() {
 
 // Rig the change listener and make sure to store the data to local storage
 var _setupDataStorageOnChange = function _setupDataStorageOnChange() {
+  console.log('in _setupDataStorageOnChange');
   var self = this;
 
   // Add listener, is triggered on data change
   self.collection.addListener('changed', function _setupDataStorageOnChangeListener() {
-
+    console.log('in _setupDataStorageOnChange, addListener callback');
     // Store the database in store when ever theres a change
     // the _saveDatabase will throttle to optimize
     _saveDatabase.call(self);
@@ -145,6 +161,7 @@ var _setupDataStorageOnChange = function _setupDataStorageOnChange() {
 
 // This is the actual grounddb instance
 var _groundDbConstructor = function _groundDbConstructor(collection, options) {
+  console.log('in _groundDbConstructor');
   var self = this;
 
   // Check if user used the "new" keyword
@@ -254,6 +271,7 @@ var _groundDbConstructor = function _groundDbConstructor(collection, options) {
   _addChangedEmitter.call(self);
 
   // The data changes should be stored in storage
+  console.log('in constructor, before _setupDataStorageOnChange');
   _setupDataStorageOnChange.call(self);
 
   // Load the database as soon as possible
@@ -497,6 +515,7 @@ var _loadDatabase = function _loadDatabase() {
 // Bulk Save database from memory to local, meant to be as slim, fast and
 // realiable as possible
 var _saveDatabase = function _saveDatabase() {
+  console.log('in _saveDatabase 1');
   var self = this;
   // If data loaded from localstorage then its ok to save - otherwise we
   // would override with less data
@@ -510,6 +529,7 @@ var _saveDatabase = function _saveDatabase() {
       Ground.emit('cache', { type: 'database', collection: self.name });
       var minifiedDb = MiniMaxDB.minify(_groundUtil.getDatabaseMap(self));
       // Save the collection into localstorage
+      console.log('in _saveDatabase 2');
       self.storage.setItem('data', minifiedDb, function storageCache(err) {
         // Emit feedback
         if (err) {
@@ -562,6 +582,7 @@ Ground.methodResume = function methodResume(names, connection) {
   // Add methods to resume
   _groundUtil.each(names, function(name) {
     _allowMethodResumeMap[name] = connection;
+    console.log("in methodResume, add method resume map, name", name);
   });
   // console.log(_allowMethodResumeMap);
 };
@@ -593,13 +614,19 @@ var _getMethodsList = function _getMethodsList() {
   // Convert the data into nice array
 
   // We iterate over the connections that have resumable methods
+  console.log("in _getMethodsList, _methodResumeConnections length, ", _methodResumeConnections.length);
+  console.log("in _getMethodsList, _methodResumeConnections, ", _methodResumeConnections);
   _groundUtil.each(_methodResumeConnections, function resumeEachConnection(connection) {
     // We run through the method invokers
+    console.log("connection._methodInvokers length, ", Object.keys(connection._methodInvokers).length);
+    console.log("connection._methodInvokers, ", connection._methodInvokers);
     _groundUtil.each(connection._methodInvokers, function resumeEachInvoker(method) {
       // Get the method name
       var name = method._message.method;
       // Check that this method is resumeable and on the correct connection
+      console.log("in _getMethodsList 1, connection, method, name", connection, method, name);
       if (_allowMethodResumeMap[name] === connection) {
+        console.log("in _getMethodsList 2, connection, method, name", connection, method,name);
         // Push the method
         methods.push({
           // Format the data
@@ -634,6 +661,7 @@ var _flushInMemoryMethods = function _flushInMemoryMethods() {
     for (var i = 0; i < _groundUtil.connection._outstandingMethodBlocks.length; i++) {
       var method = _groundUtil.connection._outstandingMethodBlocks[i];
       if (method && method._message && _allowMethodResumeMap[method._message.method]) {
+        console.log("in _flushInMemoryMethods, method,", method);
         // Clear invoke callbacks
 //    _groundUtil.connection._outstandingMethodBlocks = [];
         delete _groundUtil.connection._outstandingMethodBlocks[i];
@@ -709,7 +737,7 @@ var _methodsStorage = Store.create({
 
 var _sendMethod = function _sendMethod(method, connection) {
   // Send a log message first to the test
-  test.log('SEND', JSON.stringify(method));
+  console.log('SEND', JSON.stringify(method));
 
   if (test.isMain) {
     console.warn('Main test should not send methods...');
@@ -721,9 +749,9 @@ var _sendMethod = function _sendMethod(method, connection) {
       // last time the app ran. But we can emit data
 
       if (err) {
-        test.log('RETURNED ERROR', JSON.stringify(method), err.message);
+        console.log('RETURNED ERROR', JSON.stringify(method), err.message);
       } else {
-        test.log('RETURNED METHOD', JSON.stringify(method));
+        console.log('RETURNED METHOD', JSON.stringify(method));
       }
 
       // Emit the data we got back here
@@ -742,6 +770,7 @@ var waitingMethods = [];
 var resumeAttemptsLeft = 5;
 
 var resumeWaitingMethods = function resumeWaitingMethods() {
+  console.log("in resumeWaitingMethods");
   var missing = [];
 
   resumeAttemptsLeft--;
@@ -755,7 +784,7 @@ var resumeWaitingMethods = function resumeWaitingMethods() {
 
       if (name) {
 
-        test.log('RESUME', 'Load method "' + name + '"');
+        console.log('RESUME', 'Load method "' + name + '"');
         // Get the connection from the allow method resume
         var methodConnection = _allowMethodResumeMap[name];
         // Run it in fenced mode since the changes have already been applied
@@ -765,13 +794,14 @@ var resumeWaitingMethods = function resumeWaitingMethods() {
           _groundUtil.connection.stubFence(name, function runFencedMethod() {
             // Add method to connection
             _sendMethod(method, methodConnection);
+            console.log("in resumeWaitingMethods, method, methodConnection, ", method, methodConnection);
           });
 
         } else {
           // XXX: make sure we keep order
           // TODO: Check if we should use push or unshift
           missing.push(method);
-          test.log('RESUME', 'Missing method "' + name + '" - retry later');
+          console.log('RESUME', 'Missing method "' + name + '" - retry later');
           console.warn('Ground method resume: Cannot resume "' + name + '" connection not rigged yet, retry later');
         }
 
@@ -795,7 +825,7 @@ var resumeWaitingMethods = function resumeWaitingMethods() {
 
 var loadMissingMethods = function loadMissingMethods(callback) {
   _methodsStorage.getItem('methods', function storageLoadMissingMethods(err, data) {
-    test.log('RESUME', 'methods loaded into memory');
+    console.log('RESUME', 'methods loaded into memory');
     if (err) {
       // XXX:
       callback(err);
@@ -813,9 +843,10 @@ var loadMissingMethods = function loadMissingMethods(callback) {
 // load methods from localstorage and resume the methods
 var _loadMethods = function _loadMethods() {
 
+  console.log("in _loadMethods");
   loadMissingMethods(function loadMissingMethods(err) {
     if (err) {
-      test.log('RESUME', 'Could not load missing methods into memory', err);
+      console.log('RESUME', 'Could not load missing methods into memory', err);
     } else {
 
       // Try to resume missing methods now
@@ -843,6 +874,7 @@ var _loadMethods = function _loadMethods() {
 
 // Save the methods into the localstorage
 var _saveMethods = function _saveMethods() {
+  console.log("in _saveMethods, _methodsResumed, ", _methodsResumed);
   if (_methodsResumed) {
 
     // Ok memory is initialized
@@ -850,7 +882,9 @@ var _saveMethods = function _saveMethods() {
 
     // Save outstanding methods to localstorage
     var methods = _getMethodsList();
-//test.log('SAVE METHODS', JSON.stringify(methods));
+    console.log("in _saveMethods, methods, ", methods);
+    console.log("in _saveMethods, minified methods, ", MiniMaxMethods.minify(methods));
+    console.log('SAVE METHODS, stringified methods, ', JSON.stringify(methods));
     _methodsStorage.setItem('methods', MiniMaxMethods.minify(methods), function storage_saveMethods() { // jshint ignore:line
       // XXX:
     });
@@ -865,7 +899,7 @@ Meteor.startup(function startupMethodResume() {
   // TODO: Do we have a better way, instead of depending on time should depend
   // on en event.
   Meteor.setTimeout(function loadMethods() {
-    test.log('INIT LOAD METHODS');
+    console.log('INIT LOAD METHODS');
     _loadMethods();
   }, 500);
 });
@@ -932,11 +966,11 @@ var _syncMethods = function _syncMethods() {
     Ground.emit('sync', { type: 'methods' });
     // Load the offline data into our memory
     _groundUtil.each(_groundDatabases, function syncMethodsTimeoutEach(collection, name) {
-      test.log('SYNC DB', name);
+      console.log('SYNC DB', name);
       _loadDatabase.call(collection);
     });
     // Resume methods
-    test.log('SYNC METHODS');
+    console.log('SYNC METHODS');
     _loadMethods();
     // Resume normal writes
     _isReloading = false;
@@ -962,7 +996,9 @@ if (!test.isMain) {
     var result = _superApply.apply(this, _groundUtil.toArray(arguments));
     // Save methods
     if (_allowMethodResumeMap[name]) {
-      _saveMethods();
+      // easton: connection._methodInvokers is not immediately available
+      setTimeout(
+        _saveMethods, 100);
     }
     // return the result
     return result;
@@ -986,8 +1022,7 @@ if (!test.isMain) {
   // Sync Methods if changed
   _methodsStorage.addListener('storage', function storageEventListener() {
     // Method calls are delayed a bit for optimization
-    _syncMethods('mehods');
-
+    _syncMethods('methods');
   });
 
 }
