@@ -477,7 +477,12 @@ var _loadDatabase = function _loadDatabase() {
 
       // Maxify the data
       var docs = data && MiniMaxDB.maxify(data) || {};
-
+      // easton: make ground support Monogo.ObjectID
+      _.each(docs, function(doc) {
+        if(doc._id._str){
+          doc._id = new Mongo.ObjectID(doc._id._str);
+        }
+      });
       // Initialize client documents
       Kernel
       .each(_checkDocs.call(self, docs || {} ), function kernelEach(doc) {
