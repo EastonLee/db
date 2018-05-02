@@ -40,7 +40,6 @@ Package.onUse(function (api) {
     'wrap.collection.js',
     'wrap.eventemitter.js',
     'wrap.proto.eventemitter.js',
-    'bootstrap.css'
     ], 'client');
   api.addFiles('groundDB.server.js', 'server');
 });
